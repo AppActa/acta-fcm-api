@@ -4,7 +4,7 @@ from app.services import fcm
 
 def test_enviar_push_usa_fid_texto_personalizado_e_apenas_id_opaco(monkeypatch):
     enviar = Mock(return_value='mensagem-fcm-id')
-    monkeypatch.setattr(fcm.messaging, 'send', enviar)
+    monkeypatch.setattr(fcm, 'send', enviar)
     monkeypatch.setattr(fcm, '_firebase_app', lambda: object())
     conn = object()
 
@@ -19,7 +19,7 @@ def test_enviar_push_usa_fid_texto_personalizado_e_apenas_id_opaco(monkeypatch):
 def test_enviar_push_limpa_token_nao_registrado(monkeypatch):
     enviar = Mock(side_effect=messaging.UnregisteredError('token inválido'))
     limpar = Mock()
-    monkeypatch.setattr(fcm.messaging, 'send', enviar)
+    monkeypatch.setattr(fcm, 'send', enviar)
     monkeypatch.setattr(fcm, '_firebase_app', lambda: object())
     monkeypatch.setattr(fcm, 'limpar_fid_se_igual', limpar)
     conn = object()

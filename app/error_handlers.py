@@ -18,7 +18,7 @@ def _resposta_erro(mensagens: list[str], http_status: int, headers: dict | None 
 
 async def tratar_http_exception(_: Request, erro: StarletteHTTPException) -> JSONResponse:
     detalhe = erro.detail
-    mensagens = [str(m) for m in detalhe] if isinstance(detalhe, list) else mensagens = [str(detalhe)]
+    mensagens = [str(m) for m in detalhe] if isinstance(detalhe, list) else [str(detalhe)]
     return _resposta_erro(mensagens, erro.status_code, erro.headers)
 
 async def tratar_validacao(_: Request, erro: RequestValidationError) -> JSONResponse:

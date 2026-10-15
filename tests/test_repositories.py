@@ -86,7 +86,8 @@ def test_atualizar_fid_limpa_associacao_anterior_e_faz_commit():
 
     assert resultado is True
     assert len(cursor.executados) == 2
-    assert 'id <> %s AND fid_firebase = %s' in cursor.executados[1][0]
+    assert 'SET firebase_fid = %s' in cursor.executados[0][0]
+    assert 'id <> %s AND firebase_fid = %s' in cursor.executados[1][0]
     assert cursor.executados[1][1] == (123, 'fid-firebase-de-teste-123456')
     assert conn.commits == 1
 
@@ -137,4 +138,4 @@ def test_inserir_evento_nao_confirma_lote_quando_banco_falha():
     with pytest.raises(RuntimeError):
         notificacoes.inserir_evento(conn, evento, 'TAREFA_ATRIBUIDA', 'TAREFA', [123, 124])
 
-    assert conn.commits == 0
+    assert conn.commits == 0 
