@@ -46,7 +46,7 @@ jobs:
           docker run --detach --name fcm-teste acta-fcm-api:teste
           trap 'docker rm --force fcm-teste >/dev/null' EXIT
           for tentativa in {1..30}; do
-            if docker exec fcm-teste python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"; then
+            if docker exec fcm-teste python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8082/health', timeout=2)"; then
               exit 0
             fi
             sleep 1
