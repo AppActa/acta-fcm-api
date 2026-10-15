@@ -1,3 +1,12 @@
+def listar_ids_ativos_da_empresa(conn, ids_usuarios: list[int], id_empresa: int) -> set[int]:
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """SELECT id FROM public.usuario_sistema
+                WHERE id = ANY(%s) AND id_empresa = %s AND status = 'ATIVO'""",
+            (ids_usuarios, id_empresa),
+        )
+        return {linha[0] for linha in cursor.fetchall()}
+
 def atualizar_fid_firebase(conn, id_usuario: int, fid_firebase: str) -> bool:
     with conn.cursor() as cursor:
         cursor.execute('UPDATE public.usuario_sistema SET fid_firebase = %s WHERE id = %s AND status = %s', (fid_firebase, id_usuario, 'ATIVO'),)
