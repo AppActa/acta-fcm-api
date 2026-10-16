@@ -17,6 +17,7 @@ As APIs de domínio continuam responsáveis pelas alterações de negócio e pel
 | Eventos internos | Validação de tipo, entidade, deep link e destinatários ativos da empresa; deduplicação por destinatário e chave de ocorrência. |
 | Push | Texto fixo por evento, saudação com primeiro nome do cadastro e payload com apenas `notificationId`; remoção condicional de FID rejeitado. |
 | Autenticação | Sessão mobile validada pela `acta-pg-api` e segredo próprio para produtores internos. |
+| Lembretes | Job de véspera de tarefa, com revalidação dos candidatos e deduplicação por prazo e destinatário. |
 
 ## 🛠️ Tecnologias
 
@@ -29,6 +30,7 @@ As APIs de domínio continuam responsáveis pelas alterações de negócio e pel
 | Firebase Admin SDK 7.7.0 | Envio de mensagens por FID usando credenciais de servidor. |
 | HTTPX 0.28.1 | Consulta da sessão na API PostgreSQL. |
 | python-dotenv 1.2.2 | Leitura do `.env` local. |
+| tzdata 2026.5 | Base de fusos para execução dos lembretes no Windows. |
 | Docker / GitHub Actions | Imagem da API e workflows de validação e publicação. |
 
 As dependências estão fixadas em [requirements.txt](requirements.txt). A versão do servidor PostgreSQL depende do ambiente.
@@ -149,7 +151,37 @@ Os erros seguem o formato ACTA:
 
 O push é uma tentativa após a persistência, sem retry durável. A resposta do evento confirma o processamento da central e não a exibição no celular. O corpo usa texto fixo e pode incluir o primeiro nome do destinatário; os dados enviados contêm somente a referência da notificação. O FID não aparece nas respostas nem no conteúdo da mensagem.
 
-Há um dispositivo ativo por usuário. Registrar outro FID substitui o anterior; registrar o mesmo FID em outra conta remove sua associação antiga. A API não executa jobs de lembretes nem aplica janela silenciosa. O [plano de lembretes](docs/plano-lembretes.md) descreve a proposta de evolução.
+Há um dispositivo ativo por usuário. Registrar outro FID substitui o anterior; registrar o mesmo FID em outra conta remove sua associação antiga. Não há janela silenciosa nem retry durável de push.
+
+## ⏰ Lembretes de tarefas
+
+O job seleciona tarefas com prazo para amanhã em `America/Sao_Paulo`, em lotes de até 100. Exclui tarefas e planos concluídos/cancelados, ciclos concluídos/cancelados/pausados e empresas ou responsáveis inativos. O responsável precisa pertencer à empresa do ciclo. Prazo, estado e responsável são consultados novamente antes da publicação.
+
+Para gerar a central e tentar o push dos candidatos elegíveis:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.jobs.lembretes
+```
+
+A mesma rotina está disponível na imagem, substituindo seu comando padrão:
+
+```powershell
+docker run --rm --env-file .env acta-fcm-api python -m app.jobs.lembretes
+```
+
+Use as mesmas credenciais Firebase da API e conceda ao usuário do banco leitura de `pdca.tarefa`, `pdca.plano_acao`, `pdca.ciclo` e `public.empresa`, além das permissões da central. O job não precisa consultar a PG API para autenticar uma sessão mobile.
+
+O evento gerado é `TAREFA_VENCE_AMANHA`, com deep link `acta://tarefas/{id}` e chave `tarefa-vence-amanha:{id}:{prazo}`. A constraint por destinatário e chave torna reexecuções idempotentes. Mudança de prazo ou responsável permite uma nova ocorrência; voltar ao mesmo prazo e responsável não gera novo aviso. A rotina não altera o status da tarefa.
+
+Os logs mostram totais de candidatos, criadas, duplicadas, ignoradas e falhas. Uma falha de processamento não interrompe os demais itens; o processo retorna `1` se houver falhas e `0` em caso de sucesso. Falhas de push continuam best-effort e não tornam o evento persistido uma falha do job. Se a execução atravessar a meia-noite local, ela encerra sem enviar os itens restantes com a data antiga. Uma conclusão simultânea ainda pode tornar um aviso recém-criado desatualizado; o app deve consultar o destino autenticado.
+
+### Agendamento
+
+O [modelo de CronJob](deploy/cronjob-lembretes.yaml) executa a mesma imagem às **09h de São Paulo**, impede sobreposição pelo mesmo CronJob e permite até uma hora de atraso para iniciar. O campo `timeZone` requer Kubernetes 1.27 ou superior; consulte a [documentação de CronJobs](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/).
+
+O arquivo vem com `suspend: true`. Antes de ativá-lo no repositório de infraestrutura, substitua a tag `SUBSTITUA_SHA` pela imagem publicada, ajuste a referência ao Secret com `DB_URL` e `FIREBASE_PROJECT_ID` e configure a identidade Firebase ou o volume de credenciais. Configure também acesso ao GHCR se a imagem for privada. Depois do teste no dispositivo de desenvolvimento, altere para `suspend: false`. Para interromper novas execuções, volte para `true`; jobs já iniciados precisam ser interrompidos separadamente.
+
+Este repositório não instala nem ativa a agenda em um cluster. Atrasos, treinamentos e formulários ainda não possuem job neste serviço. A emissão de atraso pela procedure existente precisa de um corte coordenado antes de ser transferida, para evitar duplicidade.
 
 ## 🏗️ Arquitetura e estrutura
 
@@ -166,6 +198,7 @@ flowchart LR
 ```text
 app/
 ├── database/       # conexão PostgreSQL
+├── jobs/           # comando de lembretes
 ├── repositories/   # SQL da central e dos usuários
 ├── routes/         # health, central, dispositivo e eventos
 ├── schemas/        # contratos HTTP, tipos e catálogo
@@ -190,7 +223,6 @@ O workflow de [validação](.github/workflows/validacao.yml) configura instalaç
 
 ## 🤝 Links e autoria
 
-- [Repositório](https://github.com/AppActa/acta-fcm-api) · [Licença MIT](LICENSE).
+- [Repositório](https://github.com/AppActa/acta-fcm-api) · [Licença MIT](LICENSE) · `acta.institutojef@gmail.com`
 - Integrações: [ACTA PG API](https://github.com/AppActa/acta-pg-api), [ACTA Database](https://github.com/AppActa/acta-database) e [ACTA Mobile](https://github.com/AppActa/acta-mobile).
-- Contribuições: use issues e pull requests com o [template do projeto](PULL_REQUEST_TEMPLATE.md).
-- Autoria: Equipe ACTA.
+- Contribuições: use *issues* e *pull requests*; há um [PULL_REQUEST_TEMPLATE.md](PULL_REQUEST_TEMPLATE.md).

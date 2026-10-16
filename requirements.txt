@@ -4,3 +4,4 @@ psycopg2-binary==2.9.13
 python-dotenv==1.2.2
 httpx==0.28.1
 firebase-admin==7.7.0
+tzdata==2026.5; sys_platform == 'win32'
