@@ -8,6 +8,7 @@ from app.services import autenticacao
 
 class ClienteHTTP:
     resposta = None
+    chamadas = []
 
     def __init__(self, timeout):
         self.timeout = timeout
@@ -19,6 +20,7 @@ class ClienteHTTP:
         return False
 
     async def get(self, url, headers):
+        self.chamadas.append((url, headers))
         return self.resposta
 
 def credenciais():
@@ -35,6 +37,7 @@ def test_obter_usuario_autenticado_converte_401_do_pg_api(monkeypatch):
     assert erro.value.status_code == 401
 
 def test_obter_usuario_autenticado_aceita_resposta_valida_do_pg_api(monkeypatch):
+    ClienteHTTP.chamadas = []
     ClienteHTTP.resposta = SimpleNamespace(
         status_code=200,
         is_error=False,
@@ -47,6 +50,10 @@ def test_obter_usuario_autenticado_aceita_resposta_valida_do_pg_api(monkeypatch)
 
     assert usuario.id_usuario == 123
     assert usuario.id_empresa == 42
+    assert ClienteHTTP.chamadas == [(
+        'https://acta-pg-api.teste/me',
+        {'Authorization': 'Bearer token-de-teste'},
+    )]
 
 def test_obter_usuario_autenticado_rejeita_redirecionamento(monkeypatch):
     ClienteHTTP.resposta = SimpleNamespace(

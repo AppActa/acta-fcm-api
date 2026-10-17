@@ -40,3 +40,8 @@ def test_catalogo_tem_mensagem_para_todos_os_tipos_com_push():
 def test_fid_dispositivo_usa_alias_camel_case():
     dispositivo = FidDispositivoInput.model_validate({'fidFirebase': 'fid-de-teste'})
     assert dispositivo.fid_firebase == 'fid-de-teste'
+
+@pytest.mark.parametrize('campo', ['idUsuario', 'idEmpresa'])
+def test_fid_dispositivo_rejeita_identidade_enviada_pelo_app(campo):
+    with pytest.raises(ValidationError):
+        FidDispositivoInput.model_validate({'fidFirebase': 'fid-de-teste', campo: 999})

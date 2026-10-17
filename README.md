@@ -39,7 +39,7 @@ As dependências estão fixadas em [requirements.txt](requirements.txt). A vers�
 
 Tenha Python 3.12, PostgreSQL com `auditoria.notificacao` e `public.usuario_sistema` compatíveis com as consultas, acesso à `acta-pg-api` e um projeto Firebase com Cloud Messaging configurado.
 
-O cadastro de usuário deve possuir a coluna **`firebase_fid`**, usada como destino do push. `firebase_uid` identifica a conta autenticada e não substitui o FID. O aplicativo deve enviar o FID de uma instalação registrada para FCM, não um ID Token de login nem um token de registro FCM no campo de FID.
+O cadastro de usuário deve possuir a coluna **`firebase_fid`**, usada como destino do push. `firebase_uid` identifica a conta autenticada e não substitui o FID. O aplicativo envia o Firebase Installation ID (FID) no campo `fidFirebase`; ele não é o Firebase UID, o Firebase ID Token de autenticação nem o token de registro FCM. O Firebase Admin SDK envia usando `Message(fid=...)`. O FID é associado ao usuário resolvido pela sessão `/me` e não é devolvido em respostas nem escrito em logs.
 
 Este serviço usa a estrutura existente e não cria tabelas nem executa migrações.
 
@@ -90,7 +90,7 @@ Disponibilize Application Default Credentials ao contêiner pela identidade do a
 
 As rotas `/api/v1/me/...` recebem `Authorization: Bearer <FIREBASE_ID_TOKEN>`. A API consulta `GET {ACTA_PG_API_URL}/me` e obtém `idUsuario` e `idEmpresa` da sessão. O app não escolhe o destinatário da central.
 
-O endpoint interno recebe `X-Internal-Token: <INTERNAL_API_TOKEN>`. Atualmente os produtores compartilham o mesmo segredo e o catálogo de eventos aceitos; não há permissões específicas por produtor. Disponibilize essa rota somente aos serviços autorizados.
+O endpoint interno recebe `X-Internal-Token: <INTERNAL_API_TOKEN>`. Este segredo é exclusivo dos produtores de backend para `POST /internal/v1/eventos` e nunca deve ser enviado ao mobile. Atualmente os produtores compartilham o mesmo segredo e o catálogo de eventos aceitos; não há permissões específicas por produtor. Disponibilize essa rota somente aos serviços autorizados.
 
 ## 🔌 Endpoints
 
@@ -100,7 +100,7 @@ O endpoint interno recebe `X-Internal-Token: <INTERNAL_API_TOKEN>`. Atualmente o
 | `GET /api/v1/me/notificacoes/nao-lidas/quantidade` | Retorna a quantidade de não lidas não expiradas. |
 | `PATCH /api/v1/me/notificacoes/{id_notificacao}/lida` | Marca um item do usuário como lido de forma idempotente. |
 | `POST /api/v1/me/notificacoes/lidas` | Marca todas as não lidas não expiradas do usuário; retorna a quantidade alterada. |
-| `PUT /api/v1/me/dispositivo` | Recebe `{"fidFirebase":"<FIREBASE_INSTALLATION_ID>"}`; retorna `204`. |
+| `PUT /api/v1/me/dispositivo` | Recebe somente `{"fidFirebase":"<FIREBASE_INSTALLATION_ID>"}`; campos extras como `idUsuario` e `idEmpresa` são rejeitados; retorna `204` sem corpo. |
 | `DELETE /api/v1/me/dispositivo` | Remove o FID do usuário; retorna `204`. Deve ser chamado antes de encerrar a sessão no logout. |
 | `POST /internal/v1/eventos` | Persiste evento e tenta push conforme o catálogo; retorna quantidades criada e duplicada. |
 

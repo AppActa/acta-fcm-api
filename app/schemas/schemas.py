@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import AwareDatetime, Field, PositiveInt
+from pydantic import AwareDatetime, ConfigDict, Field, PositiveInt
 from app.schemas.base import ModeloACTA
 
 class EventoNotificacao(ModeloACTA):
@@ -29,6 +29,7 @@ class NotificacaoResponse(ModeloACTA):
     expira_em: datetime | None
 
 class FidDispositivoInput(ModeloACTA):
+    model_config = ConfigDict(extra='forbid')
     fid_firebase: str = Field(min_length=1, max_length=128)
 
 class UsuarioAutenticado(ModeloACTA):
