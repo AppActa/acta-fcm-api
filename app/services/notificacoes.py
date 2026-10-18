@@ -21,13 +21,13 @@ def _personalizar_mensagem_push(nome: str | None, texto: str) -> str:
 
 def _enviar_push_para_destinatario(conn, id_notificacao: int, id_usuario: int, texto_push: str,) -> None:
     try:
-        nome, token_fcm = usuario_repository.obter_dados_push(conn, id_usuario)
+        nome, fid_firebase = usuario_repository.obter_dados_push(conn, id_usuario)
         
-        if token_fcm is None:
+        if fid_firebase is None:
             return
 
         mensagem = _personalizar_mensagem_push(nome, texto_push)
-        enviar_push(conn, id_usuario, token_fcm, id_notificacao, mensagem)
+        enviar_push(conn, id_usuario, fid_firebase, id_notificacao, mensagem)
     except Exception as erro:
         logger.warning('Falha best-effort no push para usuário %s: %s', id_usuario, type(erro).__name__,)
 

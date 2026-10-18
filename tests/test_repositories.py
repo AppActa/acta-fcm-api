@@ -101,6 +101,17 @@ def test_atualizar_fid_rejeita_usuario_inativo():
     assert conn.rollbacks == 1
     assert conn.commits == 0
 
+def test_remover_fid_firebase_limpa_somente_usuario_autenticado_e_faz_commit():
+    cursor = Cursor()
+    conn = Connection(cursor)
+
+    usuarios.remover_fid_firebase(conn, 123)
+
+    sql, parametros = cursor.executados[0]
+    assert 'SET firebase_fid = NULL WHERE id = %s' in sql
+    assert parametros == (123,)
+    assert conn.commits == 1
+
 @pytest.mark.parametrize('criadas', [[(456, 123), (457, 124)], [(457, 124)], []])
 def test_inserir_evento_em_lote_retorna_somente_linhas_criadas(criadas):
     evento = SimpleNamespace(
