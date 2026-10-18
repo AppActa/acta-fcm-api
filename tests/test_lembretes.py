@@ -82,7 +82,6 @@ def test_data_e_local_mesmo_quando_utc_ja_esta_no_dia_seguinte(cenario, monkeypa
 
 @pytest.mark.parametrize('falhas,esperado', [(0, 0), (1, 1)])
 def test_job_retorna_status_para_agendador(monkeypatch, falhas, esperado):
-    monkeypatch.setattr('sys.argv', ['lembretes'])
     conn = Mock()
     def conexao():
         yield conn
@@ -93,7 +92,6 @@ def test_job_retorna_status_para_agendador(monkeypatch, falhas, esperado):
     executar.assert_called_once_with(conn)
 
 def test_job_falha_sem_imprimir_segredo(monkeypatch, caplog):
-    monkeypatch.setattr('sys.argv', ['lembretes'])
     def conexao():
         raise RuntimeError('senha-restrita')
         yield

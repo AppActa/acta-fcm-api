@@ -14,7 +14,7 @@ def test_enviar_push_usa_fid_texto_personalizado_e_apenas_id_opaco(monkeypatch):
     mensagem = enviar.call_args.args[0]
     assert mensagem.notification.title == 'ACTA'
     assert mensagem.notification.body == 'Olá, Ana! Uma tarefa foi atribuída a você.'
-    assert mensagem.data == {'notificationId': '456'}
+    assert mensagem.data == {'idNotificacao': '456'}
     assert mensagem.fid == 'fid-firebase-de-teste'
 
 def test_enviar_push_limpa_fid_nao_registrado_sem_expor_em_logs(monkeypatch, caplog):
