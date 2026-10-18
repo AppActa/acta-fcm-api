@@ -85,10 +85,8 @@ def test_atualizar_fid_limpa_associacao_anterior_e_faz_commit():
     resultado = usuarios.atualizar_fid_firebase(conn, 123, 'fid-firebase-de-teste-123456')
 
     assert resultado is True
-    assert len(cursor.executados) == 2
-    assert 'SET firebase_fid = %s' in cursor.executados[0][0]
-    assert 'id <> %s AND firebase_fid = %s' in cursor.executados[1][0]
-    assert cursor.executados[1][1] == (123, 'fid-firebase-de-teste-123456')
+    assert any('SET firebase_fid = %s' in sql and parametros == ('fid-firebase-de-teste-123456', 123, 'ATIVO') for sql, parametros in cursor.executados)
+    assert any('id <> %s AND firebase_fid = %s' in sql and parametros == (123, 'fid-firebase-de-teste-123456') for sql, parametros in cursor.executados)
     assert conn.commits == 1
 
 def test_atualizar_fid_rejeita_usuario_inativo():
@@ -107,10 +105,25 @@ def test_remover_fid_firebase_limpa_somente_usuario_autenticado_e_faz_commit():
 
     usuarios.remover_fid_firebase(conn, 123)
 
-    sql, parametros = cursor.executados[0]
-    assert 'SET firebase_fid = NULL WHERE id = %s' in sql
-    assert parametros == (123,)
+    assert any('SET firebase_fid = NULL WHERE id = %s' in sql and parametros == (123,) for sql, parametros in cursor.executados)
     assert conn.commits == 1
+
+@pytest.mark.parametrize('operacao, argumentos', [
+    (usuarios.atualizar_fid_firebase, (123, 'fid-firebase-de-teste-123456')),
+    (usuarios.remover_fid_firebase, (123,)),
+])
+def test_dispositivo_define_autor_na_transacao_antes_das_atualizacoes(operacao, argumentos):
+    cursor = Cursor()
+    operacao(Connection(cursor), *argumentos)
+
+    autor = None
+    for sql, parametros in cursor.executados:
+        if 'app.current_user_id' in sql:
+            assert 'set_config' in sql.lower()
+            assert ',true)' in ''.join(sql.split()).lower()
+            autor = parametros
+        elif sql.lstrip().upper().startswith('UPDATE'):
+            assert autor == ('123',)
 
 @pytest.mark.parametrize('criadas', [[(456, 123), (457, 124)], [(457, 124)], []])
 def test_inserir_evento_em_lote_retorna_somente_linhas_criadas(criadas):

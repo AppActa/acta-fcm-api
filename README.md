@@ -15,7 +15,7 @@ As APIs de domínio continuam responsáveis pelas alterações de negócio e pel
 | Central | Listagem por usuário, filtro de categoria e não lidas, contador e marcação individual ou em lote. |
 | Dispositivo | Registro, substituição e revogação de um Firebase Installation ID (FID) por usuário. |
 | Eventos internos | Validação de tipo, entidade, deep link e destinatários ativos da empresa; deduplicação por destinatário e chave de ocorrência. |
-| Push | Texto fixo por evento, saudação com primeiro nome do cadastro e payload com apenas `notificationId`; remoção condicional de FID rejeitado. |
+| Push | Texto fixo por evento, saudação com primeiro nome do cadastro e payload com apenas `idNotificacao`; remoção condicional de FID rejeitado. |
 | Autenticação | Sessão mobile validada pela `acta-pg-api` e segredo próprio para produtores internos. |
 | Lembretes | Job de véspera de tarefa, com revalidação dos candidatos e deduplicação por prazo e destinatário. |
 
