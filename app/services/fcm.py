@@ -18,7 +18,7 @@ def enviar_push(conn, id_usuario: int, fid_firebase: str, id_notificacao: int, t
     try:
         mensagem = Message(
             notification=Notification(title='ACTA', body=texto),
-            data={'notificationId': str(id_notificacao)},
+            data={'idNotificacao': str(id_notificacao)},
             fid=fid_firebase,
         )
         send(mensagem, app=_firebase_app())

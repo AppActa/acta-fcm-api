@@ -9,6 +9,7 @@ def listar_ids_ativos_da_empresa(conn, ids_usuarios: list[int], id_empresa: int)
 
 def atualizar_fid_firebase(conn, id_usuario: int, fid_firebase: str) -> bool:
     with conn.cursor() as cursor:
+        cursor.execute("SELECT set_config('app.current_user_id', %s, true)", (str(id_usuario),))
         cursor.execute('UPDATE public.usuario_sistema SET firebase_fid = %s WHERE id = %s AND status = %s', (fid_firebase, id_usuario, 'ATIVO'),)
 
         if cursor.rowcount == 0:
@@ -21,6 +22,7 @@ def atualizar_fid_firebase(conn, id_usuario: int, fid_firebase: str) -> bool:
 
 def remover_fid_firebase(conn, id_usuario: int) -> None:
     with conn.cursor() as cursor:
+        cursor.execute("SELECT set_config('app.current_user_id', %s, true)", (str(id_usuario),))
         cursor.execute('UPDATE public.usuario_sistema SET firebase_fid = NULL WHERE id = %s', (id_usuario,))
     conn.commit()
 
