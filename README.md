@@ -83,12 +83,17 @@ Disponibilize Application Default Credentials ao contêiner pela identidade do a
 
 ## 📚 Documentação e autenticação
 
-- Swagger UI: `http://localhost:8082/docs`
-- ReDoc: `http://localhost:8082/redoc`
-- OpenAPI: `http://localhost:8082/openapi.json`
+- Swagger UI: `http://localhost:8082/api/v1/me/docs`
+- ReDoc: `http://localhost:8082/api/v1/me/redoc`
+- OpenAPI: `http://localhost:8082/api/v1/me/openapi.json`
 - Saúde: `GET /health`, público e sem consulta a banco, PG API ou Firebase.
+- Saúde detalhada: `GET /api/v1/health`, público, com estados `UP`/`DOWN` para banco, Auth e credenciais Firebase, mensagem do CATO e `verificadoEm`. Retorna 200 quando todos estão disponíveis ou 503 caso contrário. A validação do Firebase não envia push nem comprova entrega. A Auth é consultada em `{ACTA_PG_API_URL}/health`; essa variável mantém o nome legado e deve incluir `/api/v1`. As verificações usam timeout de cinco segundos por chamada externa. O proxy precisa encaminhar `/api/v1/health` para disponibilizá-lo fora do container.
 
-As rotas `/api/v1/me/...` recebem `Authorization: Bearer <FIREBASE_ID_TOKEN>`. A API consulta `GET {ACTA_PG_API_URL}/me` e obtém `idUsuario` e `idEmpresa` da sessão. O app não escolhe o destinatário da central.
+A documentação é pública e usa o prefixo `/api/v1/me` para passar pela regra de Ingress da FCM. No ambiente publicado, substitua `http://localhost:8082` pela URL base do serviço. As rotas `/docs`, `/redoc` e `/openapi.json` na raiz não são encaminhadas por essa regra.
+
+Entradas inválidas retornam HTTP 400. O OpenAPI documenta esse retorno e os demais erros 4xx com o envelope ACTA (`mensagens`, `httpStatus`, `timestamp`), incluindo os erros 422 de regras de negócio.
+
+As operações da central e do dispositivo em `/api/v1/me/...` recebem `Authorization: Bearer <FIREBASE_ID_TOKEN>`. A API consulta `GET {ACTA_PG_API_URL}/me` e obtém `idUsuario` e `idEmpresa` da sessão. O app não escolhe o destinatário da central.
 
 O endpoint interno recebe `X-Internal-Token: <INTERNAL_API_TOKEN>`. Este segredo é exclusivo dos produtores de backend para `POST /internal/v1/eventos` e nunca deve ser enviado ao mobile. Atualmente os produtores compartilham o mesmo segredo e o catálogo de eventos aceitos; não há permissões específicas por produtor. Disponibilize essa rota somente aos serviços autorizados.
 
@@ -218,6 +223,8 @@ tests/              # testes com dublês e verificações HTTP locais
 ```
 
 Os testes usam dublês de PostgreSQL, PG API e Firebase. Não comprovam entrega em um dispositivo real.
+
+Os testes de health em `tests/test_health.py` verificam as respostas HTTP 200/503, os estados das dependências, a preservação de `/health` e o contrato Swagger, sem acessar credenciais ou serviços reais.
 
 O workflow de [validação](.github/workflows/validacao.yml) configura instalação de dependências, sintaxe, testes, build Docker e health check da imagem. O workflow de [publicação](.github/workflows/build-image.yml), acionado por push na `main`, publica no GHCR e atualiza a referência de imagem em `apps/fcm-api.yaml` do `acta-platform`, usando `ACTA_PLATFORM_TOKEN`. A execução desses workflows depende das permissões e dos segredos do ambiente.
 
