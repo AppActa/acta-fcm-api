@@ -10,7 +10,7 @@ from app.routes import dispositivo
 from app.services import autenticacao
 
 
-class ClientePG:
+class ClienteAuth:
     resposta = SimpleNamespace(status_code=200, json=lambda: {'idUsuario': 123, 'idEmpresa': 42})
 
     def __init__(self, timeout):
@@ -29,8 +29,8 @@ class ClientePG:
 @pytest.fixture
 def cliente(monkeypatch):
     app.dependency_overrides[get_conn] = lambda: object()
-    monkeypatch.setattr(autenticacao, 'ACTA_PG_API_URL', 'https://acta-pg-api.teste')
-    monkeypatch.setattr(autenticacao, 'AsyncClient', ClientePG)
+    monkeypatch.setattr(autenticacao, 'ACTA_AUTH_API_URL', 'https://acta-auth-api.teste/api/v1')
+    monkeypatch.setattr(autenticacao, 'AsyncClient', ClienteAuth)
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

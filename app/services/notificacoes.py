@@ -29,7 +29,7 @@ def _enviar_push_para_destinatario(conn, id_notificacao: int, id_usuario: int, t
         mensagem = _personalizar_mensagem_push(nome, texto_push)
         enviar_push(conn, id_usuario, fid_firebase, id_notificacao, mensagem)
     except Exception as erro:
-        logger.warning('Falha best-effort no push para usuário %s: %s', id_usuario, type(erro).__name__,)
+        logger.warning('Falha best-effort no push: %s', type(erro).__name__)
 
 def listar_notificacoes(conn, id_usuario: int, apenas_nao_lidas: bool, categoria: str | None = None) -> list:
     if categoria and categoria not in CATEGORIAS_NOTIFICACAO:

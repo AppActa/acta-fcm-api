@@ -30,5 +30,5 @@ async def tratar_validacao(_: Request, erro: RequestValidationError) -> JSONResp
     return _resposta_erro(mensagens, 400)
 
 async def tratar_erro_inesperado(_: Request, erro: Exception) -> JSONResponse:
-    logger.error('Erro interno não tratado na acta-fcm-api', exc_info=(type(erro), erro, erro.__traceback__),)
+    logger.error('Erro interno não tratado na acta-fcm-api: %s', type(erro).__name__)
     return _resposta_erro(['Ocorreu um erro interno inesperado'], 500)

@@ -39,14 +39,14 @@ jobs:
       - name: construir imagem de teste
         run: docker build --tag acta-fcm-api:teste .
 
-      - name: verificar health da imagem
+      - name: verificar resposta HTTP da imagem
         shell: bash
         run: |
           set -euo pipefail
           docker run --detach --name fcm-teste acta-fcm-api:teste
           trap 'docker rm --force fcm-teste >/dev/null' EXIT
           for tentativa in {1..30}; do
-            if docker exec fcm-teste python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8082/health', timeout=2)"; then
+            if docker exec fcm-teste python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8082/api/v1/me/openapi.json', timeout=2)"; then
               exit 0
             fi
             sleep 1

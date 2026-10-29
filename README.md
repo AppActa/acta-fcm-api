@@ -16,7 +16,7 @@ As APIs de domínio continuam responsáveis pelas alterações de negócio e pel
 | Dispositivo | Registro, substituição e revogação de um Firebase Installation ID (FID) por usuário. |
 | Eventos internos | Validação de tipo, entidade, deep link e destinatários ativos da empresa; deduplicação por destinatário e chave de ocorrência. |
 | Push | Texto fixo por evento, saudação com primeiro nome do cadastro e payload com apenas `idNotificacao`; remoção condicional de FID rejeitado. |
-| Autenticação | Sessão mobile validada pela `acta-pg-api` e segredo próprio para produtores internos. |
+| Autenticação | Sessão mobile validada pela `acta-auth-api` e segredo próprio para produtores internos. |
 | Lembretes | Job de véspera de tarefa, com revalidação dos candidatos e deduplicação por prazo e destinatário. |
 
 ## 🛠️ Tecnologias
@@ -28,7 +28,7 @@ As APIs de domínio continuam responsáveis pelas alterações de negócio e pel
 | Uvicorn 0.52.3 | Servidor da aplicação. |
 | PostgreSQL / psycopg2-binary 2.9.13 | Persistência da central e consulta de usuários. |
 | Firebase Admin SDK 7.7.0 | Envio de mensagens por FID usando credenciais de servidor. |
-| HTTPX 0.28.1 | Consulta da sessão na API PostgreSQL. |
+| HTTPX 0.28.1 | Consulta da sessão na Auth API. |
 | python-dotenv 1.2.2 | Leitura do `.env` local. |
 | tzdata 2026.5 | Base de fusos para execução dos lembretes no Windows. |
 | Docker / GitHub Actions | Imagem da API e workflows de validação e publicação. |
@@ -37,7 +37,7 @@ As dependências estão fixadas em [requirements.txt](requirements.txt). A vers�
 
 ## ⚙️ Pré-requisitos e configuração
 
-Tenha Python 3.12, PostgreSQL com `auditoria.notificacao` e `public.usuario_sistema` compatíveis com as consultas, acesso à `acta-pg-api` e um projeto Firebase com Cloud Messaging configurado.
+Tenha Python 3.12, PostgreSQL com `auditoria.notificacao` e `public.usuario_sistema` compatíveis com as consultas, acesso à `acta-auth-api` e um projeto Firebase com Cloud Messaging configurado.
 
 O cadastro de usuário deve possuir a coluna **`firebase_fid`**, usada como destino do push. `firebase_uid` identifica a conta autenticada e não substitui o FID. O aplicativo envia o Firebase Installation ID (FID) no campo `fidFirebase`; ele não é o Firebase UID, o Firebase ID Token de autenticação nem o token de registro FCM. O Firebase Admin SDK envia usando `Message(fid=...)`. O FID é associado ao usuário resolvido pela sessão `/me` e não é devolvido em respostas nem escrito em logs.
 
@@ -52,13 +52,13 @@ if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 | Variável | Uso |
 | --- | --- |
 | `DB_URL` | URL PostgreSQL com usuário autorizado a consultar usuários, atualizar `firebase_fid` e ler/gravar notificações. |
-| `ACTA_PG_API_URL` | URL base da API de autenticação, incluindo o prefixo das rotas; o serviço acrescenta `/me`. |
+| `ACTA_AUTH_API_URL` | URL base da Auth API, incluindo o prefixo das rotas; o serviço acrescenta `/me` e `/health`. |
 | `INTERNAL_API_TOKEN` | Segredo compartilhado com os produtores, enviado em `X-Internal-Token`. |
 | `FIREBASE_PROJECT_ID` | Identificador do projeto Firebase usado para envio. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Caminho de uma credencial de servidor quando o ambiente não fornece Application Default Credentials. |
 | `PORT` | Porta do contêiner; padrão `8082`. Na execução local, use `--port` do Uvicorn. |
 
-Obtenha a URL e as permissões de banco com o responsável pelo ambiente; configure a URL da PG API conforme o endpoint publicado. O projeto e a identidade de servidor Firebase devem pertencer ao ambiente utilizado. Nunca versione `.env`, segredos ou arquivos de credenciais.
+Obtenha a URL da Auth API e as permissões de banco com o responsável pelo ambiente. O projeto e a identidade de servidor Firebase devem pertencer ao ambiente utilizado. Nunca versione `.env`, segredos ou arquivos de credenciais.
 
 ## 🚀 Execução local
 
@@ -79,21 +79,20 @@ docker build -t acta-fcm-api .
 docker run --rm -p 8082:8082 --env-file .env acta-fcm-api
 ```
 
-Disponibilize Application Default Credentials ao contêiner pela identidade do ambiente ou por arquivo montado somente para leitura, com `GOOGLE_APPLICATION_CREDENTIALS` apontando para o caminho interno. Não copie credenciais para a imagem. Banco e PG API precisam ser alcançáveis pela rede do contêiner; `localhost` dentro dele aponta para o próprio contêiner.
+Disponibilize Application Default Credentials ao contêiner pela identidade do ambiente ou por arquivo montado somente para leitura, com `GOOGLE_APPLICATION_CREDENTIALS` apontando para o caminho interno. Não copie credenciais para a imagem. Banco e Auth API precisam ser alcançáveis pela rede do contêiner; `localhost` dentro dele aponta para o próprio contêiner.
 
 ## 📚 Documentação e autenticação
 
-- Swagger UI: `http://localhost:8082/api/v1/me/docs`
+- Swagger UI: `http://localhost:8082/docs` (redireciona para `/api/v1/me/docs`; o Ingress público precisa encaminhar `/docs`)
 - ReDoc: `http://localhost:8082/api/v1/me/redoc`
 - OpenAPI: `http://localhost:8082/api/v1/me/openapi.json`
-- Saúde: `GET /health`, público e sem consulta a banco, PG API ou Firebase.
-- Saúde detalhada: `GET /api/v1/health`, público, com estados `UP`/`DOWN` para banco, Auth e credenciais Firebase, mensagem do CATO e `verificadoEm`. Retorna 200 quando todos estão disponíveis ou 503 caso contrário. A validação do Firebase não envia push nem comprova entrega. A Auth é consultada em `{ACTA_PG_API_URL}/health`; essa variável mantém o nome legado e deve incluir `/api/v1`. As verificações usam timeout de cinco segundos por chamada externa. O proxy precisa encaminhar `/api/v1/health` para disponibilizá-lo fora do container.
+- Saúde: `GET /health`, público, verifica banco, Auth e credenciais Firebase e retorna 200 quando todos estão disponíveis ou 503 quando algum está indisponível. A validação Firebase não envia push nem comprova entrega. As verificações externas têm timeout de cinco segundos.
 
-A documentação é pública e usa o prefixo `/api/v1/me` para passar pela regra de Ingress da FCM. No ambiente publicado, substitua `http://localhost:8082` pela URL base do serviço. As rotas `/docs`, `/redoc` e `/openapi.json` na raiz não são encaminhadas por essa regra.
+A documentação usa o prefixo `/api/v1/me` para passar pela regra atual de Ingress da FCM. O endpoint `/docs` redireciona para o Swagger e ele carrega `/api/v1/me/openapi.json`. Para disponibilizar o atalho público, o Ingress também precisa encaminhar `/docs` ao serviço.
 
 Entradas inválidas retornam HTTP 400. O OpenAPI documenta esse retorno e os demais erros 4xx com o envelope ACTA (`mensagens`, `httpStatus`, `timestamp`), incluindo os erros 422 de regras de negócio.
 
-As operações da central e do dispositivo em `/api/v1/me/...` recebem `Authorization: Bearer <FIREBASE_ID_TOKEN>`. A API consulta `GET {ACTA_PG_API_URL}/me` e obtém `idUsuario` e `idEmpresa` da sessão. O app não escolhe o destinatário da central.
+As operações da central e do dispositivo em `/api/v1/me/...` recebem `Authorization: Bearer <FIREBASE_ID_TOKEN>`. A API consulta `GET {ACTA_AUTH_API_URL}/me` e obtém `idUsuario` e `idEmpresa` da sessão. O app não escolhe o destinatário da central.
 
 O endpoint interno recebe `X-Internal-Token: <INTERNAL_API_TOKEN>`. Este segredo é exclusivo dos produtores de backend para `POST /internal/v1/eventos` e nunca deve ser enviado ao mobile. Atualmente os produtores compartilham o mesmo segredo e o catálogo de eventos aceitos; não há permissões específicas por produtor. Disponibilize essa rota somente aos serviços autorizados.
 
@@ -174,7 +173,7 @@ A mesma rotina está disponível na imagem, substituindo seu comando padrão:
 docker run --rm --env-file .env acta-fcm-api python -m app.jobs.lembretes
 ```
 
-Use as mesmas credenciais Firebase da API e conceda ao usuário do banco leitura de `pdca.tarefa`, `pdca.plano_acao`, `pdca.ciclo` e `public.empresa`, além das permissões da central. O job não precisa consultar a PG API para autenticar uma sessão mobile.
+Use as mesmas credenciais Firebase da API e conceda ao usuário do banco leitura de `pdca.tarefa`, `pdca.plano_acao`, `pdca.ciclo` e `public.empresa`, além das permissões da central. O job não consulta a Auth API, pois não autentica uma sessão mobile.
 
 O evento gerado é `TAREFA_VENCE_AMANHA`, com deep link `acta://tarefas/{id}` e chave `tarefa-vence-amanha:{id}:{prazo}`. A constraint por destinatário e chave torna reexecuções idempotentes. Mudança de prazo ou responsável permite uma nova ocorrência; voltar ao mesmo prazo e responsável não gera novo aviso. A rotina não altera o status da tarefa.
 
@@ -194,7 +193,7 @@ Este repositório não instala nem ativa a agenda em um cluster. Atrasos, treina
 flowchart LR
     D[APIs de domínio] -->|Evento interno| API[ACTA FCM API]
     APP[ACTA Mobile] -->|Sessão e central| API
-    API -->|Validar sessão| PG[ACTA PG API]
+    API -->|Validar sessão| AUTH[ACTA Auth API]
     API -->|Persistir antes do envio| DB[(PostgreSQL)]
     API -->|Push por FID| FCM[Firebase Cloud Messaging]
     FCM --> APP
@@ -222,14 +221,14 @@ tests/              # testes com dublês e verificações HTTP locais
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
 ```
 
-Os testes usam dublês de PostgreSQL, PG API e Firebase. Não comprovam entrega em um dispositivo real.
+Os testes usam dublês de PostgreSQL, Auth API e Firebase. Não comprovam entrega em um dispositivo real.
 
-Os testes de health em `tests/test_health.py` verificam as respostas HTTP 200/503, os estados das dependências, a preservação de `/health` e o contrato Swagger, sem acessar credenciais ou serviços reais.
+Os testes de health em `tests/test_health.py` verificam o status 200/503 do único endpoint `/health` e confirmam que `/api/v1/health` não está exposto.
 
 O workflow de [validação](.github/workflows/validacao.yml) configura instalação de dependências, sintaxe, testes, build Docker e health check da imagem. O workflow de [publicação](.github/workflows/build-image.yml), acionado por push na `main`, publica no GHCR e atualiza a referência de imagem em `apps/fcm-api.yaml` do `acta-platform`, usando `ACTA_PLATFORM_TOKEN`. A execução desses workflows depende das permissões e dos segredos do ambiente.
 
 ## 🤝 Links e autoria
 
 - [Repositório](https://github.com/AppActa/acta-fcm-api) · [Licença MIT](LICENSE) · `acta.institutojef@gmail.com`
-- Integrações: [ACTA PG API](https://github.com/AppActa/acta-pg-api), [ACTA Database](https://github.com/AppActa/acta-database) e [ACTA Mobile](https://github.com/AppActa/acta-mobile).
+- Integrações: [ACTA Auth API](https://github.com/AppActa/acta-auth-api), [ACTA Database](https://github.com/AppActa/acta-database) e [ACTA Mobile](https://github.com/AppActa/acta-mobile).
 - Contribuições: use *issues* e *pull requests*; há um [PULL_REQUEST_TEMPLATE.md](PULL_REQUEST_TEMPLATE.md).

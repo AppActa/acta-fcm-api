@@ -111,6 +111,7 @@ def test_remover_fid_firebase_limpa_somente_usuario_autenticado_e_faz_commit():
 @pytest.mark.parametrize('operacao, argumentos', [
     (usuarios.atualizar_fid_firebase, (123, 'fid-firebase-de-teste-123456')),
     (usuarios.remover_fid_firebase, (123,)),
+    (usuarios.limpar_fid_se_igual, (123, 'fid-firebase-de-teste-123456')),
 ])
 def test_dispositivo_define_autor_na_transacao_antes_das_atualizacoes(operacao, argumentos):
     cursor = Cursor()
@@ -162,4 +163,4 @@ def test_inserir_evento_nao_confirma_lote_quando_banco_falha():
     with pytest.raises(RuntimeError):
         notificacoes.inserir_evento(conn, evento, 'TAREFA_ATRIBUIDA', 'TAREFA', [123, 124])
 
-    assert conn.commits == 0 
+    assert conn.commits == 0

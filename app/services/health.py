@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from google.auth.transport.requests import Request
 from httpx import Client, HTTPError
 from psycopg2 import connect
-from app.config import ACTA_PG_API_URL, DB_URL
+from app.config import ACTA_AUTH_API_URL, DB_URL
 from app.schemas.health import HealthResponse, HealthStatus
 from app.services.fcm import _firebase_app
 
@@ -23,7 +23,7 @@ def _verificar_banco() -> HealthStatus:
 def _verificar_auth() -> HealthStatus:
     try:
         with Client(timeout=TIMEOUT_SECONDS) as client:
-            resposta = client.get(f'{ACTA_PG_API_URL.rstrip("/")}/health')
+            resposta = client.get(f'{ACTA_AUTH_API_URL.rstrip("/")}/health')
         return 'UP' if resposta.status_code == 200 and resposta.json().get('status') == 'UP' else 'DOWN'
     except (HTTPError, ValueError, AttributeError):
         return 'DOWN'
