@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.error_handlers import tratar_erro_inesperado, tratar_http_exception, tratar_validacao
 from app.routes.router import api_router
@@ -23,3 +24,7 @@ app.add_exception_handler(StarletteHTTPException, tratar_http_exception)
 app.add_exception_handler(RequestValidationError, tratar_validacao)
 app.add_exception_handler(Exception, tratar_erro_inesperado)
 app.include_router(api_router)
+
+@app.get("/docs", include_in_schema=False)
+def redirecionar_documentacao():
+    return RedirectResponse(url="/api/v1/me/docs", status_code=307)
