@@ -22,10 +22,11 @@ def enviar_push(conn, id_usuario: int, fid_firebase: str, id_notificacao: int, t
             fid=fid_firebase,
         )
         send(mensagem, app=_firebase_app())
+        logger.info('Firebase aceitou um pedido de envio de notificacao')
     except (UnregisteredError, SenderIdMismatchError):
         limpar_fid_se_igual(conn, id_usuario, fid_firebase)
-        logger.info('FID inválido removido para usuário %s', id_usuario)
+        logger.info('FID inválido removido')
     except FirebaseError as erro:
-        logger.warning('Falha no envio FCM para usuário %s: %s', id_usuario, type(erro).__name__)
+        logger.warning('Falha no envio FCM: %s', type(erro).__name__)
     except Exception as erro:
-        logger.warning('FCM indisponível para usuário %s: %s', id_usuario, type(erro).__name__)
+        logger.warning('FCM indisponível: %s', type(erro).__name__)

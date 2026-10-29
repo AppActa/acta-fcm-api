@@ -34,5 +34,6 @@ def obter_dados_push(conn, id_usuario: int) -> tuple[str | None, str | None]:
 
 def limpar_fid_se_igual(conn, id_usuario: int, fid_firebase: str) -> None:
     with conn.cursor() as cursor:
+        cursor.execute("SELECT set_config('app.current_user_id', %s, true)", (str(id_usuario),))
         cursor.execute('UPDATE public.usuario_sistema SET firebase_fid = NULL WHERE id = %s AND firebase_fid = %s', (id_usuario, fid_firebase),)
     conn.commit()
