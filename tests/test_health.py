@@ -62,7 +62,7 @@ def ambiente(monkeypatch):
 
     cliente_http = httpx.Client
     monkeypatch.setattr(health, 'DB_URL', 'postgresql://health.test/banco-sintetico')
-    monkeypatch.setattr(health, 'ACTA_PG_API_URL', 'https://auth.test/api/v1')
+    monkeypatch.setattr(health, 'ACTA_AUTH_API_URL', 'https://auth.test/api/v1')
     monkeypatch.setattr(health, 'connect', banco.connect)
     monkeypatch.setattr(health, 'Client', lambda **kwargs: cliente_http(transport=httpx.MockTransport(responder_auth), **kwargs))
     monkeypatch.setattr(fcm, 'get_app', lambda: SimpleNamespace(credential=SimpleNamespace(get_credential=lambda: credencial)))
@@ -76,7 +76,7 @@ def ambiente(monkeypatch):
 
 
 def test_health_retorna_200_com_componentes_up_mensagem_e_horario_com_fuso(ambiente):
-    resposta = ambiente.cliente.get('/api/v1/health')
+    resposta = ambiente.cliente.get('/health')
 
     assert resposta.status_code == 200
     corpo = resposta.json()
@@ -99,7 +99,7 @@ def test_health_retorna_503_identifica_componente_indisponivel_e_nao_expoe_segre
         ambiente.firebase.valid = False
         ambiente.firebase.indisponivel = True
 
-    resposta = ambiente.cliente.get('/api/v1/health')
+    resposta = ambiente.cliente.get('/health')
 
     assert resposta.status_code == 503
     corpo = resposta.json()
@@ -110,7 +110,7 @@ def test_health_retorna_503_identifica_componente_indisponivel_e_nao_expoe_segre
     assert SEGREDO_SINTETICO not in resposta.text
 
 
-def test_liveness_continua_200_quando_todas_as_dependencias_estao_down(ambiente):
+def test_health_retorna_503_quando_todas_as_dependencias_estao_down(ambiente):
     ambiente.banco.indisponivel = True
     ambiente.auth.resposta = httpx.Response(503)
     ambiente.firebase.valid = False
@@ -118,8 +118,9 @@ def test_liveness_continua_200_quando_todas_as_dependencias_estao_down(ambiente)
 
     resposta = ambiente.cliente.get('/health')
 
-    assert resposta.status_code == 200
-    assert resposta.json() == {'status': 'ok', 'service': 'acta-fcm-api'}
+    assert resposta.status_code == 503
+    assert resposta.json()['status'] == 'DOWN'
+    assert all(resposta.json()[componente] == 'DOWN' for componente in ('banco', 'auth', 'firebase'))
 
 
 def test_swagger_documenta_200_e_503_com_o_mesmo_formato_publico(ambiente):
@@ -127,7 +128,8 @@ def test_swagger_documenta_200_e_503_com_o_mesmo_formato_publico(ambiente):
 
     assert resposta.status_code == 200
     contrato = resposta.json()
-    operacao = contrato['paths']['/api/v1/health']['get']
+    operacao = contrato['paths']['/health']['get']
+    assert '/api/v1/health' not in contrato['paths']
     assert not operacao.get('security')
     assert {'200', '503'} <= operacao['responses'].keys()
     campos = {'status', 'banco', 'auth', 'firebase', 'mensagem', 'verificadoEm'}
@@ -144,7 +146,7 @@ def test_swagger_documenta_200_e_503_com_o_mesmo_formato_publico(ambiente):
 def test_health_considera_auth_down_mesmo_quando_http_200_informa_down(ambiente):
     ambiente.auth.resposta = httpx.Response(200, json={'status': 'DOWN'})
 
-    resposta = ambiente.cliente.get('/api/v1/health')
+    resposta = ambiente.cliente.get('/health')
 
     assert resposta.status_code == 503
     assert resposta.json()['auth'] == 'DOWN'
@@ -154,8 +156,12 @@ def test_health_considera_auth_down_mesmo_quando_http_200_informa_down(ambiente)
 def test_health_renova_credencial_firebase_antes_de_informar_up(ambiente):
     ambiente.firebase.valid = False
 
-    resposta = ambiente.cliente.get('/api/v1/health')
+    resposta = ambiente.cliente.get('/health')
 
     assert resposta.status_code == 200
     assert resposta.json()['firebase'] == 'UP'
     assert resposta.json()['status'] == 'UP'
+
+
+def test_health_antigo_nao_e_mais_exposto(ambiente):
+    assert ambiente.cliente.get('/api/v1/health').status_code == 404

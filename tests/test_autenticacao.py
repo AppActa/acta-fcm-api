@@ -26,9 +26,9 @@ class ClienteHTTP:
 def credenciais():
     return HTTPAuthorizationCredentials(scheme='Bearer', credentials='token-de-teste')
 
-def test_obter_usuario_autenticado_converte_401_do_pg_api(monkeypatch):
+def test_obter_usuario_autenticado_converte_401_da_auth_api(monkeypatch):
     ClienteHTTP.resposta = Response(401, text='Unauthorized')
-    monkeypatch.setattr(autenticacao, 'ACTA_PG_API_URL', 'https://acta-pg-api.teste')
+    monkeypatch.setattr(autenticacao, 'ACTA_AUTH_API_URL', 'https://acta-auth-api.teste/api/v1')
     monkeypatch.setattr(autenticacao, 'AsyncClient', ClienteHTTP)
 
     with pytest.raises(HTTPException) as erro:
@@ -36,14 +36,14 @@ def test_obter_usuario_autenticado_converte_401_do_pg_api(monkeypatch):
 
     assert erro.value.status_code == 401
 
-def test_obter_usuario_autenticado_aceita_resposta_valida_do_pg_api(monkeypatch):
+def test_obter_usuario_autenticado_aceita_resposta_valida_da_auth_api(monkeypatch):
     ClienteHTTP.chamadas = []
     ClienteHTTP.resposta = SimpleNamespace(
         status_code=200,
         is_error=False,
         json=lambda: {'idUsuario': 123, 'idEmpresa': 42},
     )
-    monkeypatch.setattr(autenticacao, 'ACTA_PG_API_URL', 'https://acta-pg-api.teste')
+    monkeypatch.setattr(autenticacao, 'ACTA_AUTH_API_URL', 'https://acta-auth-api.teste/api/v1')
     monkeypatch.setattr(autenticacao, 'AsyncClient', ClienteHTTP)
 
     usuario = asyncio.run(autenticacao.obter_usuario_autenticado(credenciais()))
@@ -51,7 +51,7 @@ def test_obter_usuario_autenticado_aceita_resposta_valida_do_pg_api(monkeypatch)
     assert usuario.id_usuario == 123
     assert usuario.id_empresa == 42
     assert ClienteHTTP.chamadas == [(
-        'https://acta-pg-api.teste/me',
+        'https://acta-auth-api.teste/api/v1/me',
         {'Authorization': 'Bearer token-de-teste'},
     )]
 
@@ -61,7 +61,7 @@ def test_obter_usuario_autenticado_rejeita_redirecionamento(monkeypatch):
         is_error=False,
         json=lambda: {'idUsuario': 123, 'idEmpresa': 42},
     )
-    monkeypatch.setattr(autenticacao, 'ACTA_PG_API_URL', 'https://acta-pg-api.teste')
+    monkeypatch.setattr(autenticacao, 'ACTA_AUTH_API_URL', 'https://acta-auth-api.teste/api/v1')
     monkeypatch.setattr(autenticacao, 'AsyncClient', ClienteHTTP)
 
     with pytest.raises(HTTPException) as erro:
