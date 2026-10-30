@@ -5,31 +5,44 @@ from app.repositories import usuarios as usuario_repository
 from app.schemas.catalogo import (
     CATEGORIAS_NOTIFICACAO,
     ENTIDADE_POR_CATEGORIA,
-    MENSAGENS_PUSH,
     ROTAS_ENTIDADE,
     TIPOS_EVENTO,
 )
+from app.schemas.schemas import FalhaEnvioPush
 from app.services.fcm import enviar_push
 
 logger = logging.getLogger(__name__)
 
-def _personalizar_mensagem_push(nome: str | None, texto: str) -> str:
-    primeiro_nome = (nome or '').strip().split(maxsplit=1)
-    if not primeiro_nome:
-        return texto
-    return f'Olá, {primeiro_nome[0]}! {texto}'
-
-def _enviar_push_para_destinatario(conn, id_notificacao: int, id_usuario: int, texto_push: str,) -> None:
+def _enviar_push_para_destinatario(conn, id_notificacao: int, id_usuario: int, evento) -> None:
     try:
-        nome, fid_firebase = usuario_repository.obter_dados_push(conn, id_usuario)
-        
+        _, fid_firebase = usuario_repository.obter_dados_push(conn, id_usuario)
         if fid_firebase is None:
+            logger.info(
+                'push não tentado: destino ausente tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
+                evento.tipo_evento, evento.tipo_entidade, evento.id_entidade, evento.chave_deduplicacao,
+            )
             return
-
-        mensagem = _personalizar_mensagem_push(nome, texto_push)
-        enviar_push(conn, id_usuario, fid_firebase, id_notificacao, mensagem)
+        logger.info(
+            'push tentado tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
+            evento.tipo_evento, evento.tipo_entidade, evento.id_entidade, evento.chave_deduplicacao,
+        )
+        enviar_push(conn, id_usuario, fid_firebase, id_notificacao)
+        logger.info(
+            'Firebase aceitou push tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
+            evento.tipo_evento, evento.tipo_entidade, evento.id_entidade, evento.chave_deduplicacao,
+        )
+    except FalhaEnvioPush as erro:
+        logger.warning(
+            'Firebase rejeitou push recuperavel=%s destinoInvalido=%s codigo=%s tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
+            erro.recuperavel, erro.destino_invalido, erro.codigo, evento.tipo_evento, evento.tipo_entidade,
+            evento.id_entidade, evento.chave_deduplicacao,
+        )
     except Exception as erro:
-        logger.warning('Falha best-effort no push: %s', type(erro).__name__)
+        logger.warning(
+            'erro no push recuperavel=desconhecido tipoErro=%s tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
+            type(erro).__name__, evento.tipo_evento, evento.tipo_entidade,
+            evento.id_entidade, evento.chave_deduplicacao,
+        )
 
 def listar_notificacoes(conn, id_usuario: int, apenas_nao_lidas: bool, categoria: str | None = None) -> list:
     if categoria and categoria not in CATEGORIAS_NOTIFICACAO:
@@ -42,10 +55,6 @@ def publicar_evento(conn, evento) -> dict:
         raise HTTPException(status_code=422, detail='Tipo de evento não permitido')
 
     categoria, deve_enviar_push = configuracao
-    texto_push = MENSAGENS_PUSH.get(evento.tipo_evento)
-    if deve_enviar_push and not texto_push:
-        raise HTTPException(status_code=500, detail='Mensagem de push não configurada para o evento')
-
     rota = ROTAS_ENTIDADE.get(evento.tipo_entidade)
 
     if (not rota or evento.tipo_entidade != ENTIDADE_POR_CATEGORIA[categoria]):
@@ -62,9 +71,18 @@ def publicar_evento(conn, evento) -> dict:
         raise HTTPException(status_code=422, detail='Destinatário não pertence à empresa ou não está ativo')
 
     criadas = repository.inserir_evento(conn, evento, evento.tipo_evento, categoria, destinatarios)
+    logger.info(
+        'evento aceito tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
+        evento.tipo_evento, evento.tipo_entidade, evento.id_entidade, evento.chave_deduplicacao,
+    )
+    logger.info(
+        'central persistida quantidade=%s duplicadas=%s tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
+        len(criadas), len(destinatarios) - len(criadas), evento.tipo_evento,
+        evento.tipo_entidade, evento.id_entidade, evento.chave_deduplicacao,
+    )
     if deve_enviar_push:
         for id_notificacao, id_usuario in criadas:
-            _enviar_push_para_destinatario(conn, id_notificacao, id_usuario, texto_push,)
+            _enviar_push_para_destinatario(conn, id_notificacao, id_usuario, evento)
 
     return {
         'quantidade_criada': len(criadas),

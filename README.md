@@ -15,7 +15,7 @@ As APIs de domínio continuam responsáveis pelas alterações de negócio e pel
 | Central | Listagem por usuário, filtro de categoria e não lidas, contador e marcação individual ou em lote. |
 | Dispositivo | Registro, substituição e revogação de um Firebase Installation ID (FID) por usuário. |
 | Eventos internos | Validação de tipo, entidade, deep link e destinatários ativos da empresa; deduplicação por destinatário e chave de ocorrência. |
-| Push | Texto fixo por evento, saudação com primeiro nome do cadastro e payload com apenas `idNotificacao`; remoção condicional de FID rejeitado. |
+| Push | Firebase Installation ID do destinatário e payload de dados somente com `idNotificacao`; remoção condicional de destino não registrado. |
 | Autenticação | Sessão mobile validada pela `acta-auth-api` e segredo próprio para produtores internos. |
 | Lembretes | Job de véspera de tarefa, com revalidação dos candidatos e deduplicação por prazo e destinatário. |
 
@@ -153,7 +153,17 @@ Os erros seguem o formato ACTA:
 | `502 / 503` | Falha na integração de autenticação, configuração ausente ou banco indisponível. |
 | `500` | Erro interno inesperado. |
 
-O push é uma tentativa após a persistência, sem retry durável. A resposta do evento confirma o processamento da central e não a exibição no celular. O corpo usa texto fixo e pode incluir o primeiro nome do destinatário; os dados enviados contêm somente a referência da notificação. O FID não aparece nas respostas nem no conteúdo da mensagem.
+O push é uma tentativa após a persistência, sem retry durável. A resposta do evento confirma o processamento da central e não a aceitação pelo Firebase nem a exibição no celular. O Firebase Admin SDK usa `Message(fid=...)`, com timeout de cinco segundos e validação do projeto configurado. A mensagem leva somente `idNotificacao`, uma referência opaca para o app consultar a central autenticada. O FID não aparece nas respostas, logs ou payloads.
+
+Falhas do Firebase são classificadas nos logs como recuperáveis ou permanentes; destinos não registrados são removidos condicionalmente do usuário. Essa classificação permite diagnóstico, mas não agenda novo envio: retentativa durável exigiria ampliar o schema, que esta API não altera.
+
+`PUT /api/v1/me/dispositivo` retorna `204` quando a API validou a sessão e concluiu a associação ao usuário ativo. Isso não comprova aceitação do FID pelo Firebase nem exibição de notificações no Android.
+
+### Acesso à rota interna
+
+`POST /internal/v1/eventos` existe na aplicação e exige `X-Internal-Token`. Mantenha essa rota privada. O Ingress público encaminha `/api/v1/me` e `/health`; por isso, um `404` para `/internal/v1/eventos` no host público é esperado e não indica que a rota esteja ausente da aplicação.
+
+Para diagnosticar comunicação entre serviços, verifique a URL base `ACTA_FCM_API_URL` configurada no produtor e faça a chamada a `http://acta-fcm-api:8082/internal/v1/eventos` de dentro do cluster, com o token interno configurado no produtor. Um `404` nessa chamada interna aponta para caminho/versão do serviço; falha de DNS, timeout ou conexão recusada aponta para descoberta de serviço, rede ou disponibilidade do pod. Não publique a rota interna no Ingress como correção.
 
 Há um dispositivo ativo por usuário. Registrar outro FID substitui o anterior; registrar o mesmo FID em outra conta remove sua associação antiga. Não há janela silenciosa nem retry durável de push.
 
@@ -221,7 +231,7 @@ tests/              # testes com dublês e verificações HTTP locais
 .\.venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
 ```
 
-Os testes usam dublês de PostgreSQL, Auth API e Firebase. Não comprovam entrega em um dispositivo real.
+Os testes usam dublês de PostgreSQL, Auth API e Firebase. Não comprovam escrita em um PostgreSQL real, comunicação entre pods, aceitação no projeto Firebase implantado ou entrega em um dispositivo real.
 
 Os testes de health em `tests/test_health.py` verificam o status 200/503 do único endpoint `/health` e confirmam que `/api/v1/health` não está exposto.
 
