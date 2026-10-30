@@ -2,7 +2,16 @@ from datetime import datetime
 from pydantic import AwareDatetime, ConfigDict, Field, PositiveInt
 from app.schemas.base import ModeloACTA
 
+class FalhaEnvioPush(Exception):
+    def __init__(self, codigo: str, recuperavel: bool, destino_invalido: bool = False):
+        super().__init__(codigo)
+        self.codigo = codigo
+        self.recuperavel = recuperavel
+        self.destino_invalido = destino_invalido
+
 class EventoNotificacao(ModeloACTA):
+    model_config = ConfigDict(extra='forbid')
+
     id_evento: str = Field(min_length=1, max_length=100)
     tipo_evento: str = Field(min_length=1, max_length=60)
     ocorrido_em: AwareDatetime
