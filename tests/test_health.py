@@ -65,7 +65,15 @@ def ambiente(monkeypatch):
     monkeypatch.setattr(health, 'ACTA_AUTH_API_URL', 'https://auth.test/api/v1')
     monkeypatch.setattr(health, 'connect', banco.connect)
     monkeypatch.setattr(health, 'Client', lambda **kwargs: cliente_http(transport=httpx.MockTransport(responder_auth), **kwargs))
-    monkeypatch.setattr(fcm, 'get_app', lambda: SimpleNamespace(credential=SimpleNamespace(get_credential=lambda: credencial)))
+    monkeypatch.setattr(fcm, 'FIREBASE_PROJECT_ID', 'projeto-health-de-teste')
+    monkeypatch.setattr(
+        fcm,
+        'get_app',
+        lambda _name=None: SimpleNamespace(
+            project_id='projeto-health-de-teste',
+            credential=SimpleNamespace(get_credential=lambda: credencial),
+        ),
+    )
 
     def envio_proibido(*args, **kwargs):
         pytest.fail('Health não deve enviar notificações')

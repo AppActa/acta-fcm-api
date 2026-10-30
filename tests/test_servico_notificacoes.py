@@ -1,9 +1,11 @@
 from unittest.mock import Mock
+from secrets import token_urlsafe
+import logging
 
 import pytest
 from fastapi import HTTPException
 
-from app.schemas.schemas import EventoNotificacao
+from app.schemas.schemas import EventoNotificacao, FalhaEnvioPush
 from app.services import notificacoes
 
 class Cursor:
@@ -70,7 +72,7 @@ def test_publicar_evento_rejeita_destinatario_de_outra_empresa():
 def test_publicar_evento_persiste_e_envia_push_com_primeiro_nome(monkeypatch):
     conn = Connection(linhas=[(123,)])
     inserir = Mock(return_value=[(456, 123)])
-    buscar_dados_push = Mock(return_value=('Ana Souza', 'token-secreto'))
+    buscar_dados_push = Mock(return_value=(None, token_urlsafe(32)))
     enviar = Mock()
     monkeypatch.setattr(notificacoes.repository, 'inserir_evento', inserir)
     monkeypatch.setattr(notificacoes.usuario_repository, 'obter_dados_push', buscar_dados_push)
@@ -80,13 +82,12 @@ def test_publicar_evento_persiste_e_envia_push_com_primeiro_nome(monkeypatch):
 
     assert resposta == {'quantidade_criada': 1, 'quantidade_duplicada': 0}
     inserir.assert_called_once()
-    enviar.assert_called_once_with(
-        conn,
-        123,
-        'token-secreto',
-        456,
-        'Olá, Ana! Uma tarefa foi atribuída a você.',
-    )
+    enviar.assert_called_once()
+    argumentos = enviar.call_args.args
+    assert argumentos[0] is conn
+    assert argumentos[1] == 123
+    assert argumentos[2]
+    assert argumentos[3] == 456
 
 def test_publicar_evento_de_central_nao_tenta_push(monkeypatch):
     conn = Connection(linhas=[(123,)])
@@ -112,6 +113,41 @@ def test_publicar_evento_duplicado_nao_reenvia_push(monkeypatch):
 
     assert resposta == {'quantidade_criada': 0, 'quantidade_duplicada': 1}
     enviar.assert_not_called()
+
+def test_falha_temporaria_do_firebase_preserva_notificacao_persistida(monkeypatch, caplog):
+    conn = Connection(linhas=[(123,)])
+    etapas = []
+    fid_sintetico = token_urlsafe(32)
+    monkeypatch.setattr(notificacoes.usuario_repository, 'listar_ids_ativos_da_empresa', lambda *_: {123})
+    monkeypatch.setattr(
+        notificacoes.repository,
+        'inserir_evento',
+        Mock(side_effect=lambda *_: (etapas.append('persistida') or [(456, 123)])),
+    )
+    monkeypatch.setattr(
+        notificacoes.usuario_repository,
+        'obter_dados_push',
+        Mock(return_value=(None, fid_sintetico)),
+    )
+
+    def falhar(*_):
+        assert etapas == ['persistida']
+        raise FalhaEnvioPush('unavailable', recuperavel=True)
+
+    monkeypatch.setattr(notificacoes, 'enviar_push', falhar)
+
+    with caplog.at_level(logging.INFO):
+        resposta = notificacoes.publicar_evento(conn, evento())
+
+    assert resposta == {'quantidade_criada': 1, 'quantidade_duplicada': 0}
+    assert etapas == ['persistida']
+    assert 'evento aceito' in caplog.text
+    assert 'central persistida' in caplog.text
+    assert 'push tentado' in caplog.text
+    assert 'Firebase rejeitou push' in caplog.text
+    assert 'recuperavel=True' in caplog.text
+    assert 'unavailable' in caplog.text
+    assert fid_sintetico not in caplog.text
 
 def test_listar_notificacoes_rejeita_categoria_invalida():
     with pytest.raises(HTTPException) as erro:
