@@ -5,7 +5,9 @@ from app.repositories import usuarios as usuario_repository
 from app.schemas.catalogo import (
     CATEGORIAS_NOTIFICACAO,
     ENTIDADE_POR_CATEGORIA,
+    MENSAGENS_PUSH,
     ROTAS_ENTIDADE,
+    TITULOS_PUSH,
     TIPOS_EVENTO,
 )
 from app.schemas.schemas import FalhaEnvioPush
@@ -26,7 +28,7 @@ def _enviar_push_para_destinatario(conn, id_notificacao: int, id_usuario: int, e
             'push tentado tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
             evento.tipo_evento, evento.tipo_entidade, evento.id_entidade, evento.chave_deduplicacao,
         )
-        enviar_push(conn, id_usuario, fid_firebase, id_notificacao)
+        enviar_push(conn, id_usuario, fid_firebase, id_notificacao, TITULOS_PUSH[evento.tipo_evento], MENSAGENS_PUSH[evento.tipo_evento],)
         logger.info(
             'Firebase aceitou push tipoEvento=%s tipoEntidade=%s idEntidade=%s chaveDeduplicacao=%s',
             evento.tipo_evento, evento.tipo_entidade, evento.id_entidade, evento.chave_deduplicacao,
