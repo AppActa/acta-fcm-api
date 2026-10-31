@@ -1,6 +1,6 @@
 import pytest
 from pydantic import ValidationError
-from app.schemas.catalogo import MENSAGENS_PUSH, TIPOS_EVENTO
+from app.schemas.catalogo import MENSAGENS_PUSH, TITULOS_PUSH, TIPOS_EVENTO
 from app.schemas.schemas import EventoNotificacao, FidDispositivoInput
 
 def evento_json(**alteracoes):
@@ -36,6 +36,7 @@ def test_catalogo_tem_mensagem_para_todos_os_tipos_com_push():
     tipos_com_push = {tipo for tipo, (_, push) in TIPOS_EVENTO.items() if push}
 
     assert set(MENSAGENS_PUSH) == tipos_com_push
+    assert set(TITULOS_PUSH) == tipos_com_push
 
 def test_fid_dispositivo_usa_alias_camel_case():
     dispositivo = FidDispositivoInput.model_validate({'fidFirebase': 'fid-de-teste'})

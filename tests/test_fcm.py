@@ -16,11 +16,12 @@ def test_enviar_push_usa_fid_oficial_e_apenas_referencia_opaca(monkeypatch):
     conn = object()
     fid_sintetico = token_urlsafe(32)
 
-    resposta = fcm.enviar_push(conn, 123, fid_sintetico, 456)
+    resposta = fcm.enviar_push(conn, 123, fid_sintetico, 456, 'Título de teste', 'Texto de teste')
 
     mensagem = enviar.call_args.args[0]
     assert resposta == 'mensagem-fcm-id'
-    assert mensagem.notification is None
+    assert mensagem.notification.title == 'Título de teste'
+    assert mensagem.notification.body == 'Texto de teste'
     assert mensagem.data == {'idNotificacao': '456'}
     assert mensagem.android.priority == 'high'
     assert mensagem.fid
@@ -37,7 +38,7 @@ def test_enviar_push_invalida_destino_expirado_sem_expo_lo_em_logs(monkeypatch, 
 
     with caplog.at_level(logging.INFO):
         with pytest.raises(FalhaEnvioPush) as erro:
-            fcm.enviar_push(conn, 123, fid_sintetico, 456)
+            fcm.enviar_push(conn, 123, fid_sintetico, 456, 'Título de teste', 'Texto de teste')
 
     limpar.assert_called_once_with(conn, 123, fid_sintetico)
     assert erro.value.destino_invalido is True
@@ -50,7 +51,7 @@ def test_enviar_push_classifica_falha_temporaria_sem_reportar_sucesso(monkeypatc
     monkeypatch.setattr(fcm, '_firebase_app', lambda: object())
 
     with pytest.raises(FalhaEnvioPush) as erro:
-        fcm.enviar_push(object(), 123, token_urlsafe(32), 456)
+        fcm.enviar_push(object(), 123, token_urlsafe(32), 456, 'Título de teste', 'Texto de teste')
 
     assert erro.value.recuperavel is True
     assert erro.value.codigo == 'unavailable'
@@ -61,7 +62,7 @@ def test_enviar_push_classifica_timeout_de_transporte_como_recuperavel(monkeypat
     monkeypatch.setattr(fcm, '_firebase_app', lambda: object())
 
     with pytest.raises(FalhaEnvioPush) as erro:
-        fcm.enviar_push(object(), 123, token_urlsafe(32), 456)
+        fcm.enviar_push(object(), 123, token_urlsafe(32), 456, 'Título de teste', 'Texto de teste')
 
     assert erro.value.recuperavel is True
 
@@ -71,7 +72,7 @@ def test_enviar_push_nao_confirma_resposta_vazia_do_sdk(monkeypatch):
     monkeypatch.setattr(fcm, '_firebase_app', lambda: object())
 
     with pytest.raises(FalhaEnvioPush) as erro:
-        fcm.enviar_push(object(), 123, token_urlsafe(32), 456)
+        fcm.enviar_push(object(), 123, token_urlsafe(32), 456, 'Título de teste', 'Texto de teste')
 
     assert erro.value.codigo == 'empty-firebase-response'
     assert erro.value.recuperavel is True

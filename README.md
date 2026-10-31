@@ -153,7 +153,7 @@ Os erros seguem o formato ACTA:
 | `502 / 503` | Falha na integração de autenticação, configuração ausente ou banco indisponível. |
 | `500` | Erro interno inesperado. |
 
-O push é uma tentativa após a persistência, sem retry durável. A resposta do evento confirma o processamento da central e não a aceitação pelo Firebase nem a exibição no celular. O Firebase Admin SDK usa `Message(fid=...)`, com timeout de cinco segundos e validação do projeto configurado. A mensagem leva somente `idNotificacao`, uma referência opaca para o app consultar a central autenticada. O FID não aparece nas respostas, logs ou payloads.
+O push é uma tentativa após a persistência, sem retry durável. A resposta do evento confirma o processamento da central e não a aceitação pelo Firebase nem a exibição no celular. O Firebase Admin SDK usa `Message(fid=...)`, com timeout de cinco segundos e validação do projeto configurado. Cada evento com push envia título e texto específicos do tipo; o payload de dados contém somente `idNotificacao`, uma referência opaca para o app consultar a central autenticada. O FID não aparece nas respostas, logs ou payloads.
 
 Falhas do Firebase são classificadas nos logs como recuperáveis ou permanentes; destinos não registrados são removidos condicionalmente do usuário. Essa classificação permite diagnóstico, mas não agenda novo envio: retentativa durável exigiria ampliar o schema, que esta API não altera.
 

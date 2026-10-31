@@ -40,12 +40,27 @@ ROTAS_ENTIDADE = {
     'LICAO_APRENDIDA': 'licoes',
 }
 
+TITULOS_PUSH = {
+    'TAREFA_ATRIBUIDA': 'Nova tarefa atribuída',
+    'TAREFA_REATRIBUIDA': 'Tarefa reatribuída',
+    'TAREFA_VENCE_AMANHA': 'Tarefa vence amanhã',
+    'TAREFA_ATRASADA': 'Tarefa atrasada',
+    'CICLO_MEMBRO_ADICIONADO': 'Você foi adicionado a um ciclo',
+    'CICLO_PAUSADO': 'Ciclo pausado',
+    'CICLO_CANCELADO': 'Ciclo cancelado',
+    'TREINAMENTO_ATRIBUIDO': 'Treinamento atribuído',
+    'TREINAMENTO_LEMBRETE': 'Treinamento pendente',
+    'FORMULARIO_PUBLICADO': 'Novo formulário disponível',
+    'FORMULARIO_LEMBRETE': 'Formulário pendente',
+    'IMPORTACAO_FALHOU': 'Falha na importação',
+}
+
 MENSAGENS_PUSH = {
-    'TAREFA_ATRIBUIDA': 'Uma tarefa foi atribuída a você.',
+    'TAREFA_ATRIBUIDA': 'Você recebeu uma nova tarefa.',
     'TAREFA_REATRIBUIDA': 'Uma tarefa foi reatribuída para você.',
-    'TAREFA_VENCE_AMANHA': 'Você tem uma tarefa com prazo para amanhã.',
-    'TAREFA_ATRASADA': 'Você tem uma tarefa com prazo vencido.',
-    'CICLO_MEMBRO_ADICIONADO': 'Você foi incluído em um ciclo.',
+    'TAREFA_VENCE_AMANHA': 'Uma tarefa sua vence amanhã.',
+    'TAREFA_ATRASADA': 'Uma tarefa sua está atrasada.',
+    'CICLO_MEMBRO_ADICIONADO': 'Você pode acompanhar as atualizações deste ciclo.',
     'CICLO_PAUSADO': 'Um ciclo do qual você participa foi pausado.',
     'CICLO_CANCELADO': 'Um ciclo do qual você participa foi cancelado.',
     'TREINAMENTO_ATRIBUIDO': 'Um treinamento foi atribuído a você.',

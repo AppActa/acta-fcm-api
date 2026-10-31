@@ -5,6 +5,7 @@ import logging
 import pytest
 from fastapi import HTTPException
 
+from app.schemas.catalogo import MENSAGENS_PUSH, TITULOS_PUSH
 from app.schemas.schemas import EventoNotificacao, FalhaEnvioPush
 from app.services import notificacoes
 
@@ -69,7 +70,7 @@ def test_publicar_evento_rejeita_destinatario_de_outra_empresa():
     assert erro.value.status_code == 422
     assert 'id = ANY' in conn.cursor_obj.executados[0][0]
 
-def test_publicar_evento_persiste_e_envia_push_com_primeiro_nome(monkeypatch):
+def test_publicar_evento_persiste_e_envia_push_com_titulo_e_texto_do_evento(monkeypatch):
     conn = Connection(linhas=[(123,)])
     inserir = Mock(return_value=[(456, 123)])
     buscar_dados_push = Mock(return_value=(None, token_urlsafe(32)))
@@ -88,6 +89,8 @@ def test_publicar_evento_persiste_e_envia_push_com_primeiro_nome(monkeypatch):
     assert argumentos[1] == 123
     assert argumentos[2]
     assert argumentos[3] == 456
+    assert argumentos[4] == TITULOS_PUSH['TAREFA_ATRIBUIDA']
+    assert argumentos[5] == MENSAGENS_PUSH['TAREFA_ATRIBUIDA']
 
 def test_publicar_evento_de_central_nao_tenta_push(monkeypatch):
     conn = Connection(linhas=[(123,)])
